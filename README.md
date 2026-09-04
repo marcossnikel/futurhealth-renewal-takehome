@@ -4,13 +4,23 @@ A focused Go implementation of one subscription renewal per patient billing cycl
 
 ## Run
 
-The only required tool is **Go 1.25.4 or newer**:
+The fresh-clone path needs only **Git and Go 1.25.4 or newer**:
 
 ```bash
+git clone https://github.com/marcossnikel/futurhealth-renewal-takehome.git
+cd futurhealth-renewal-takehome
 go test ./...
 ```
 
-Tests use Temporal's in-process environment and the real Activities with recording adapters. They do not require a Temporal server, Temporal CLI, Docker, Bash, `curl`, `jq`, `nc`, or `seq`. The first module and checker download requires network access.
+Tests use Temporal's in-process environment and the real Activities with recording adapters. They do not require a Temporal server, Temporal CLI, Docker, Bash, `curl`, `jq`, `nc`, or `seq`. Initial module and checker downloads require network access.
+
+To run a real local workflow and inspect its history in Temporal UI:
+
+```bash
+go run ./cmd/demo
+```
+
+This one command downloads and caches the pinned official Temporal CLI on first use, then starts an ephemeral server, UI, worker, and a **decline → plan change during backoff → retry → success** scenario. It prints a direct workflow URL and keeps the UI open until `Ctrl+C`; nothing is installed globally. The first run requires network access.
 
 To watch the main workflow scenarios with their Activity and Signal traces:
 
@@ -26,7 +36,7 @@ make test   # run the test suite
 make check  # formatting, vet, race tests, and workflow determinism
 ```
 
-`make` is only a convenience; it is not required. The optional worker executable in `cmd/worker` expects a Temporal server at `localhost:7233`, but it is not needed for review or tests.
+`make` is only a convenience; it is not required. `cmd/worker` is the standalone worker for an already-running Temporal server at `localhost:7233`; the self-contained UI demo does not use it.
 
 ## How it works
 
@@ -64,8 +74,10 @@ The default policy is three attempts (`1s`, then `2s` backoff) inside a `12s` re
 | `pkg/renewal/domain.go` | State transitions and terminal invariants |
 | `pkg/renewal/activities.go` | Payment-processor and event-sink ports |
 | `pkg/renewal/client.go` | Caller-facing Temporal service |
+| `pkg/renewal/registration.go` | Shared worker registration |
 | `pkg/renewal/*_test.go` | Domain, client, and workflow behavior |
 | `internal/simulated/adapters.go` | In-memory processor and sink adapters |
+| `cmd/demo/main.go` | One-command real-server and UI scenario |
 | `cmd/worker/main.go` | Worker and Activity registration |
 
 ## Correctness and tests
@@ -90,5 +102,6 @@ The suite covers every requested scenario: first-attempt success; retry then suc
 | One charge attempt is unresolved at a time; cancellation or timeout may win after a charge was submitted. | Add reconciliation plus idempotent void/refund handling before fulfillment. |
 | Terminal-event delivery retries until accepted. | Classify permanent errors, alert on exhaustion, and provide an operational repair path or transactional outbox. |
 | Temporal history is the durable source; there is no application database or read model. | Add durable request idempotency, searchable projections, audit logs, metrics, and alerts. |
+| The UI demo uses an ephemeral, in-memory Temporal server and simulated adapters. | Run workers against a persistent Temporal cluster and durable provider integrations. |
 
 Authentication, authorization, encryption policy, deployment manifests, and provider-specific integration are intentionally outside this take-home's scope.

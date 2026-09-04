@@ -6,10 +6,8 @@ import (
 
 	"github.com/marcossnikel/futurhealth-renewal-takehome/internal/simulated"
 	"github.com/marcossnikel/futurhealth-renewal-takehome/pkg/renewal"
-	"go.temporal.io/sdk/activity"
 	temporalclient "go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
-	"go.temporal.io/sdk/workflow"
 )
 
 func main() {
@@ -29,10 +27,7 @@ func main() {
 	activities := &renewal.Activities{Processor: processor, Sink: sink}
 
 	renewalWorker := worker.New(client, renewal.TaskQueue, worker.Options{})
-	renewalWorker.RegisterWorkflowWithOptions(renewal.RenewalWorkflow, workflow.RegisterOptions{Name: renewal.WorkflowName})
-	renewalWorker.RegisterActivityWithOptions(activities.AttemptCharge, activity.RegisterOptions{Name: renewal.AttemptChargeActivityName})
-	renewalWorker.RegisterActivityWithOptions(activities.EmitPaymentEvent, activity.RegisterOptions{Name: renewal.EmitPaymentActivityName})
-	renewalWorker.RegisterActivityWithOptions(activities.EmitCancellationEvent, activity.RegisterOptions{Name: renewal.EmitCancellationActivityName})
+	renewal.RegisterWorker(renewalWorker, activities)
 
 	logger.Info("renewal worker started", "task_queue", renewal.TaskQueue)
 	if err := renewalWorker.Run(worker.InterruptCh()); err != nil {
